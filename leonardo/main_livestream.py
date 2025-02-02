@@ -1,7 +1,7 @@
 # ajustar para ser trigger com distancia
 # crop nas maos antes de identificar
 # media de classificacao de X frames 
-
+import random
 import mediapipe as mp
 import time #import time, sleep, time_ns
 import cv2
@@ -23,14 +23,20 @@ os.environ["MESA_DEBUG"] = "0"
 os.environ["MESA_LOG_LEVEL"] = "fatal"
 tf.get_logger().setLevel('INFO')
 
+def play_child():
+    return playsound('audios/criancas.wav', block=False)
+
 def play_soco():
-    playsound("soco.wav", block=False)
+    playsound("audios/soco.wav", block=False)
 
 def play_bate():
-    playsound("bate.wav", block=False)
+    playsound("audios/bate.wav", block=False)
 
-def play_vira():
-    playsound("vira.wav", block=False)
+def play_random():
+    rand = random.choice([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    playsound(f"audios/{rand}.wav", block=False)
+
+play_child()
 
 BaseOptions = mp.tasks.BaseOptions
 GestureRecognizer = mp.tasks.vision.GestureRecognizer
@@ -44,8 +50,19 @@ inside_min_distance = False
 global begun_playing
 begun_playing = None
 
+global last_trigger
+last_trigger = time.time()
+
 def play(gesture):
     global begun_playing
+    global last_trigger 
+
+    now = time.time()
+    print(last_trigger)
+    print(now)
+    if (now - last_trigger) > 0.5:
+        last_trigger = time.time()
+        play_random()
 
     if begun_playing is None:
         begun_playing = time.time()
@@ -53,8 +70,13 @@ def play(gesture):
     delta = time.time() - begun_playing
     ran = random.uniform(0, 1)
 
-    if ran < 0.3 and delta > 4:
+    if delta > 50:
         begun_playing = None
+        if gesture == 'soco':
+            play_soco()
+        elif gesture == 'bate':
+            play_bate()
+
         print(f"PLAY: {ran} - GESTURE: {gesture}")
         return True
 
@@ -75,7 +97,7 @@ def print_result(result, output_image: mp.Image, timestamp_ms: int):
         best_gesture = result.gestures
         best_gesture.sort(key=lambda x: x[0].score, reverse=True)
 
-        current_inside_min_distance = best_gesture[0][0].score > 0.60 and distance < 0.4 and left_and_right == ['Left', 'Right'] 
+        current_inside_min_distance = best_gesture[0][0].score > 0.60 and distance < 0.3 and left_and_right == ['Left', 'Right'] 
         global inside_min_distance
 
         if current_inside_min_distance and inside_min_distance:
@@ -118,6 +140,14 @@ def transform_coordinates(set_gestures_coordinates, i):
         dists.append(distance(coords, 0, 1))
         dists.append(distance(coords, 0, 2))
         dists.append(distance(coords, 2, 1))
+#    elif len(coords) == 4:
+#        dists.append(distance(coords, 0, 1))
+#        dists.append(distance(coords, 0, 2))
+#        dists.append(distance(coords, 0, 3))
+#        dists.append(distance(coords, 1, 2))
+#        dists.append(distance(coords, 1, 3))
+#        dists.append(distance(coords, 2, 3))
+
 
     if len(dists) == 0:
         return 1
@@ -132,7 +162,7 @@ ct_results = []
 while cap.isOpened():
     options = GestureRecognizerOptions(
         base_options=BaseOptions(model_asset_path='./exported_model/gesture_recognizer.task'),
-        num_hands=2,
+        num_hands=4,
         min_hand_detection_confidence=0.6,
         running_mode=VisionRunningMode.LIVE_STREAM,
         result_callback=print_result)
